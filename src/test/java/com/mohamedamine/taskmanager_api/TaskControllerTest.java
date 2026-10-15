@@ -1,43 +1,35 @@
 
 package com.mohamedamine.taskmanager_api;
 
+import com.mohamedamine.taskmanager_api.repository.TaskRepository;
+import com.mohamedamine.taskmanager_api.service.TaskService;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.mockito.Mockito.verifyNoInteractions;
-
-import static org.mockito.Mockito.verify;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 
 import java.util.List;
 import java.util.Map;
 
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(TaskController.class)
-
+@Import(TaskService.class)
 class TaskControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
     @MockitoBean
-    private JdbcTemplate jdbcTemplate;
+    private TaskRepository taskRepository;
 
+    // TEST 1 - POST sans titre
     @Test
     void shouldRejectTaskWithoutTitle() throws Exception {
 
@@ -50,9 +42,10 @@ class TaskControllerTest {
                         """))
                 .andExpect(status().isBadRequest());
 
-        verifyNoInteractions(jdbcTemplate);
+        verifyNoInteractions(taskRepository);
     }
 
+    // TEST 2 - POST avec titre
     @Test
     void shouldCreateTaskWithValidTitle() throws Exception {
 
@@ -66,22 +59,25 @@ class TaskControllerTest {
                         """))
                 .andExpect(status().isOk());
 
-        verify(jdbcTemplate).update(
-                anyString(),
-                eq("Learn Testing"),
-                eq("Practice API tests"));
+        verify(taskRepository).create(
+                "Learn Testing",
+                "Practice API tests"
+        );
     }
 
+    // TEST 3 - GET
     @Test
     void shouldGetAllTasks() throws Exception {
 
-        when(jdbcTemplate.queryForList(anyString()))
+        when(taskRepository.findAll())
                 .thenReturn(List.of(
                         Map.of(
                                 "id", 1,
                                 "title", "Learn Java",
                                 "description", "Practice OOP",
-                                "status", "DONE")));
+                                "status", "DONE"
+                        )
+                ));
 
         mockMvc.perform(get("/api/tasks"))
                 .andExpect(status().isOk())
@@ -90,13 +86,12 @@ class TaskControllerTest {
                 .andExpect(jsonPath("$[0].status").value("DONE"));
     }
 
+    // TEST 4 - PUT
     @Test
     void shouldUpdateTaskStatus() throws Exception {
 
-        when(jdbcTemplate.update(
-                anyString(),
-                eq("DONE"),
-                eq(4))).thenReturn(1);
+        when(taskRepository.updateStatus(4, "DONE"))
+                .thenReturn(1);
 
         mockMvc.perform(put("/api/tasks/4")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -107,28 +102,19 @@ class TaskControllerTest {
                         """))
                 .andExpect(status().isOk());
 
-        verify(jdbcTemplate).update(
-                anyString(),
-                eq("DONE"),
-                eq(4));
+        verify(taskRepository).updateStatus(4, "DONE");
     }
 
+    // TEST 5 - DELETE
     @Test
     void shouldDeleteTask() throws Exception {
 
-        // Simuler la suppression d'une tâche
-        when(jdbcTemplate.update(
-                anyString(),
-                eq(4))).thenReturn(1);
+        when(taskRepository.delete(4))
+                .thenReturn(1);
 
-        // Envoyer une requête DELETE
         mockMvc.perform(delete("/api/tasks/4"))
                 .andExpect(status().isOk());
 
-        // Vérifier que DELETE a été exécuté
-        verify(jdbcTemplate).update(
-                anyString(),
-                eq(4));
+        verify(taskRepository).delete(4);
     }
-
 }
